@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import no.nrk.radio.nav3.navigation.BottomSheetNavigationModel
 import no.nrk.radio.nav3.navigation.NavigationModel
+import no.nrk.radio.nav3.navigation.PlayerNavigationModel
 import no.nrk.radio.nav3.navigation.SeriesNavigationModel
 import org.koin.androidx.compose.koinViewModel
 
@@ -41,10 +42,10 @@ fun SeriesScreen(
 
         Button(
             onClick = {
-                onNavigateUp()
+                onNavigate(PlayerNavigationModel("Heeeeyyy"))
             }
         ) {
-            Text("Go back")
+            Text("Go to player")
         }
 
         Button(

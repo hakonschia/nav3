@@ -4,17 +4,15 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavEntry
-import androidx.navigation3.runtime.NavKey
-import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSavedStateNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import androidx.navigation3.ui.rememberSceneSetupNavEntryDecorator
@@ -22,25 +20,21 @@ import no.nrk.radio.nav3.navigation.BottomSheetNavigationModel
 import no.nrk.radio.nav3.navigation.DialogNavigationModel
 import no.nrk.radio.nav3.navigation.FrontPageNavigationModel
 import no.nrk.radio.nav3.navigation.NavigationModel
+import no.nrk.radio.nav3.navigation.PlayerNavigationModel
 import no.nrk.radio.nav3.navigation.SeriesNavigationModel
 import no.nrk.radio.nav3.scenes.BottomSheetNavEntry
 import no.nrk.radio.nav3.scenes.CustomSceneStrategy
 import no.nrk.radio.nav3.scenes.DialogNavEntry
+import no.nrk.radio.nav3.screens.BottomSheetScreen
+import no.nrk.radio.nav3.screens.DialogScreen
 import no.nrk.radio.nav3.screens.FrontPageScreen
+import no.nrk.radio.nav3.screens.PlayerScreen
 import no.nrk.radio.nav3.screens.SeriesScreen
 import no.nrk.radio.nav3.screens.SeriesViewModel
 import no.nrk.radio.nav3.ui.theme.Nav3Theme
 import org.koin.compose.KoinApplication
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
-
-@Composable
-fun <T : NavKey> rememberTypedNavBackStack(vararg startDestinations: T): SnapshotStateList<T> {
-    // Cast this so the lambda value sent to NavDisplay's entryProvider is T and not a NavKey, otherwise we have to cast it in there which is annoying
-    // rememberNavBackStack() complains if we send in a vararg instead of a single value (startDestination), not sure why
-    @Suppress("UNCHECKED_CAST")
-    return rememberNavBackStack<T>(*startDestinations) as SnapshotStateList<T>
-}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,69 +53,66 @@ class MainActivity : ComponentActivity() {
                 }
             ) {
                 Nav3Theme {
-                    val backStack = rememberTypedNavBackStack<NavigationModel>(FrontPageNavigationModel)
+                    val snackbarHostState = remember { SnackbarHostState() }
+                    val navigationController = rememberNavigationController<NavigationModel>(
+                        snackbarHostState,
+                        FrontPageNavigationModel
+                    )
 
-                    NavDisplay(
-                        backStack = backStack,
-                        entryDecorators = listOf(
-                            rememberSceneSetupNavEntryDecorator(),
-                            rememberSavedStateNavEntryDecorator(),
-                            rememberViewModelStoreNavEntryDecorator()
-                        ),
-                        sceneStrategy = CustomSceneStrategy()
-                    ) { key ->
-                        when (key) {
-                            is FrontPageNavigationModel -> NavEntry(key) {
-                                FrontPageScreen(
-                                    onNavigate = {
-                                        backStack.add(it)
-                                    }
+                    Scaffold(
+                        snackbarHost = {
+                            snackbarHostState.currentSnackbarData?.let { snackbarData ->
+                                Snackbar(
+                                    snackbarData = snackbarData
                                 )
                             }
-
-                            is SeriesNavigationModel -> NavEntry(key) {
-                                SeriesScreen(
-                                    navigationModel = key,
-                                    onNavigate = {
-                                        backStack.add(it)
-                                    },
-                                    onNavigateUp = {
-                                        backStack.removeAt(backStack.lastIndex)
-                                    }
-                                )
-                            }
-
-                            is BottomSheetNavigationModel -> BottomSheetNavEntry(key) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxSize(0.4f)
-                                ) {
-                                    Text(key.title)
-
-                                    Button(
-                                        onClick = {
-                                            backStack.add(BottomSheetNavigationModel("nested bottom sheet???"))
-                                        }
-                                    ) {
-                                        Text("New bottom sheet??")
-                                    }
+                        }
+                    ) { contentPadding ->
+                        NavDisplay(
+                            backStack = navigationController.backStack,
+                            entryDecorators = listOf(
+                                rememberSceneSetupNavEntryDecorator(),
+                                rememberSavedStateNavEntryDecorator(),
+                                rememberViewModelStoreNavEntryDecorator()
+                            ),
+                            sceneStrategy = CustomSceneStrategy(),
+                            modifier = Modifier
+                                .padding(contentPadding)
+                        ) { navigationModel ->
+                            when (navigationModel) {
+                                is FrontPageNavigationModel -> NavEntry(navigationModel) {
+                                    FrontPageScreen(
+                                        onNavigate = navigationController::addToBackStack
+                                    )
                                 }
-                            }
 
-                            is DialogNavigationModel -> DialogNavEntry(key) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxSize(0.4f)
-                                ) {
-                                    Text(key.dialogTitle)
+                                is SeriesNavigationModel -> NavEntry(navigationModel) {
+                                    SeriesScreen(
+                                        navigationModel = navigationModel,
+                                        onNavigate = navigationController::addToBackStack,
+                                        onNavigateUp = navigationController::popBackStack
+                                    )
+                                }
 
-                                    Button(
-                                        onClick = {
-                                            backStack.add(BottomSheetNavigationModel("nested dialog???"))
-                                        }
-                                    ) {
-                                        Text("New dialog sheet??")
-                                    }
+                                is PlayerNavigationModel -> NavEntry(navigationModel) {
+                                    PlayerScreen(
+                                        navigationModel = navigationModel,
+                                        onNavigate = navigationController::addToBackStack
+                                    )
+                                }
+
+                                is BottomSheetNavigationModel -> BottomSheetNavEntry(navigationModel) {
+                                    BottomSheetScreen(
+                                        navigationModel = navigationModel,
+                                        onNavigate = navigationController::addToBackStack
+                                    )
+                                }
+
+                                is DialogNavigationModel -> DialogNavEntry(navigationModel) {
+                                    DialogScreen(
+                                        navigationModel = navigationModel,
+                                        onNavigate = navigationController::addToBackStack
+                                    )
                                 }
                             }
                         }
