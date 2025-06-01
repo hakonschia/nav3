@@ -24,6 +24,7 @@ inline fun <reified T : NavKey> rememberNavigationController(
     return remember(snackbarHostState, backStack, coroutineScope) {
         // NavigationController should expose the backStack as T, not something that extends NavKey, this makes NavDisplay's
         // entryProvider lambda provide a value that is T, not NavKey (which is annoying)
+        // https://issuetracker.google.com/issues/420443609
         @Suppress("UNCHECKED_CAST")
         NavigationController(
             backStack = backStack as SnapshotStateList<T>,
