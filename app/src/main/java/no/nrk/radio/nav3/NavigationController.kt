@@ -10,16 +10,15 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.rememberNavBackStack
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import no.nrk.radio.nav3.navigation.SingleNavigationEntry
 
 @Composable
-fun <T : NavKey> rememberNavigationController(
+inline fun <reified T : NavKey> rememberNavigationController(
     snackbarHostState: SnackbarHostState,
-    vararg startDestinations: T
+    startDestinations: List<T>
 ): NavigationController<T> {
-    val backStack = rememberNavBackStack(*startDestinations)
+    val backStack = rememberNavBackStack(*startDestinations.toTypedArray())
     val coroutineScope = rememberCoroutineScope()
 
     return remember(snackbarHostState, backStack, coroutineScope) {
@@ -55,5 +54,10 @@ class NavigationController<T : NavKey>(
         if (backStack.size > 1) {
             backStack.removeAt(backStack.lastIndex)
         }
+    }
+
+    fun clearBackStackAndNavigate(navigations: List<T>) {
+        backStack.clear()
+        backStack.addAll(navigations)
     }
 }
