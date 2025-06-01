@@ -5,12 +5,18 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.rememberSavedStateNavEntryDecorator
@@ -83,10 +89,21 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
 
-                            is PlayerNavigationModel -> NavEntry(navigationModel) {
+                            is PlayerNavigationModel -> NavEntry(
+                                key = navigationModel,
+                                metadata = NavDisplay.predictivePopTransitionSpec {
+                                    fadeIn() togetherWith scaleOut(
+                                        targetScale = 0.9f,
+                                        transformOrigin = TransformOrigin(1f, 0.5f)
+                                    ) + fadeOut(
+                                        animationSpec = tween(delayMillis = 100)
+                                    )
+                                }
+                            ) {
                                 PlayerScreen(
                                     navigationModel = navigationModel,
-                                    onNavigate = navigationController::addToBackStack
+                                    onNavigate = navigationController::addToBackStack,
+                                    onNavigateUp = navigationController::popBackStack
                                 )
                             }
 
