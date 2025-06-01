@@ -1,6 +1,5 @@
 package no.nrk.radio.nav3
 
-import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -10,11 +9,18 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
@@ -22,9 +28,12 @@ import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.rememberSavedStateNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import androidx.navigation3.ui.rememberSceneSetupNavEntryDecorator
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.take
 import no.nrk.radio.nav3.navigation.BottomSheetNavigationModel
 import no.nrk.radio.nav3.navigation.DialogNavigationModel
 import no.nrk.radio.nav3.navigation.FrontPageNavigationModel
+import no.nrk.radio.nav3.navigation.InitializingNavigationModel
 import no.nrk.radio.nav3.navigation.NavigationModel
 import no.nrk.radio.nav3.navigation.PlayerNavigationModel
 import no.nrk.radio.nav3.navigation.SeriesNavigationModel
@@ -37,22 +46,32 @@ import no.nrk.radio.nav3.screens.FrontPageScreen
 import no.nrk.radio.nav3.screens.PlayerScreen
 import no.nrk.radio.nav3.screens.SeriesScreen
 import no.nrk.radio.nav3.ui.theme.Nav3Theme
+import org.koin.androidx.compose.koinViewModel
 
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val startNavigations = intent.data.parseDeeplink()
-
         enableEdgeToEdge()
         setContent {
             Nav3Theme {
+                val deepLinkViewModel = koinViewModel<DeepLinkViewModel>()
+
                 val snackbarHostState = remember { SnackbarHostState() }
                 val navigationController = rememberNavigationController<NavigationModel>(
-                    snackbarHostState,
-                    startNavigations
+                    snackbarHostState = snackbarHostState,
+                    startDestinations = listOf(InitializingNavigationModel)
                 )
+
+                LaunchedEffect(Unit) {
+                    deepLinkViewModel.parseDeepLink(intent.data)
+
+                    deepLinkViewModel.navigations.filterNotNull().take(1).collect { navigations ->
+                        navigationController.clearBackStackAndNavigate(navigations)
+                        deepLinkViewModel.setHandled()
+                    }
+                }
 
                 Scaffold(
                     snackbarHost = {
@@ -75,6 +94,19 @@ class MainActivity : ComponentActivity() {
                             .padding(contentPadding)
                     ) { navigationModel ->
                         when (navigationModel) {
+                            is InitializingNavigationModel -> NavEntry(navigationModel) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                ) {
+                                    Text("Parsing deep link :))")
+
+                                    CircularProgressIndicator()
+                                }
+                            }
+
                             is FrontPageNavigationModel -> NavEntry(navigationModel) {
                                 FrontPageScreen(
                                     onNavigate = navigationController::addToBackStack
@@ -123,23 +155,8 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
+
             }
         }
-    }
-}
-
-private fun Uri?.parseDeeplink(): List<NavigationModel> {
-    return when (this?.path) {
-        "/series" -> listOf(
-            FrontPageNavigationModel, SeriesNavigationModel("from deeplink")
-        )
-
-        "/player" -> listOf(
-            FrontPageNavigationModel, SeriesNavigationModel("from deeplink, after player"), PlayerNavigationModel("from deeplinky")
-        )
-
-        else -> listOf(
-            FrontPageNavigationModel
-        )
     }
 }

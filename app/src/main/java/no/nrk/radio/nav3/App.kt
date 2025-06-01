@@ -17,6 +17,7 @@ class App : Application() {
             modules(
                 listOf(
                     module {
+                        viewModelOf(::DeepLinkViewModel)
                         viewModelOf(::SeriesViewModel)
                     }
                 )
